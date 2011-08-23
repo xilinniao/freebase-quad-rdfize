@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.omg.CORBA.portable.ValueBase;
 
 import com.sj.data.transform.ExtDataTransformer;
 import com.sj.data.transform.MalFormedAssertionException;
