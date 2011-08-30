@@ -21,6 +21,7 @@ import org.apache.log4j.Logger;
 import com.sj.data.transform.MalFormedAssertionException;
 import com.sj.data.transform.SkippedAssertionException;
 import com.sj.freebase.data.rdf.FreebaseRdfizer;
+import com.sj.freebase.schema.rdf.FbSchemaGlobals;
 
 public class DemoFreebaseRdfizer {
 
@@ -42,7 +43,8 @@ public class DemoFreebaseRdfizer {
         domainsToSkip.add("music");
         FreebaseRdfizer rdfizer =
             new FreebaseRdfizer(null, null, predicatesToSkip, null,
-                domainsToSkip);
+                domainsToSkip, new FileInputStream(new File(
+                    FbSchemaGlobals.FREEBASE_ONTOLOGY_PATH)));
 
         if (args.length < 1 || args.length % 2 != 0) {
             throw new IllegalArgumentException(
