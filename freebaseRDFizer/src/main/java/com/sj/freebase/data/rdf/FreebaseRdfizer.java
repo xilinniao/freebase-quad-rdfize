@@ -1,42 +1,53 @@
 package com.sj.freebase.data.rdf;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-
+import com.hp.hpl.jena.ontology.OntModel;
+import com.hp.hpl.jena.ontology.OntModelSpec;
+import com.hp.hpl.jena.ontology.OntProperty;
+import com.hp.hpl.jena.ontology.OntResource;
+import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.sj.data.transform.ExtDataTransformer;
 import com.sj.data.transform.MalFormedAssertionException;
 import com.sj.data.transform.SkippedAssertionException;
+import com.sj.freebase.schema.rdf.FbSchemaGlobals;
+import com.sj.ontology.alignment.SimpleFreebaseDatatypeMap;
 
 public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
     private CharSequence fieldSeparator = "\t";
-    private String freebaseNsPrefix = "http://rdf.freebase.com/ns/";
+    private String freebaseNsPrefix = "http://rdf.freebase.com/ns#";
     private List<String> skipPredicateRegexList = new ArrayList<String>();
     private List<String> keyRegexList = new ArrayList<String>();
     private Set<String> domainsToSkip = new HashSet<String>();
+    private SimpleFreebaseDatatypeMap freebaseDataTypeMap =
+        new SimpleFreebaseDatatypeMap();
+    private OntModel freebaseOntModel = ModelFactory
+        .createOntologyModel(OntModelSpec.RDFS_MEM);
 
     private static final String FB_NAMESPACE =
         "<http://rdf.freebase.com/ns/type.key.namespace>";
     private static final String FB_VALUE =
         "<http://rdf.freebase.com/ns/type.value.value>";
     private static final String DEFAULT_DOMAIN_TO_SKIP = "user";
-
     private static final String DEFAULT_LANG_REGEX = "/lang/";
     private static final String KEY_TYPE1_REGEX = "type.key.namespace";
     private static final String KEY_TYPE2_REGEX = "type.object.key";
 
-
-    public FreebaseRdfizer () {
-        this(null, null, null, null, null);
+    public FreebaseRdfizer (InputStream ipStream) {
+        this(null, null, null, null, null, ipStream);
     }
 
 
     public FreebaseRdfizer (CharSequence fieldSeparator, String prefix,
         List<String> predicatesToSkip, List<String> keyPredicateRegexList,
-        Set<String> domainsToSkip) {
+        Set<String> domainsToSkip, InputStream ipStream) {
         if (fieldSeparator != null) {
             this.fieldSeparator = fieldSeparator;
         }
@@ -60,6 +71,8 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
         } else {
             keyRegexList.addAll(keyPredicateRegexList);
         }
+
+        freebaseOntModel.read(ipStream, freebaseNsPrefix);
     }
 
 
@@ -115,9 +128,14 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
         triple.append(predicate);
         triple.append(">\t");
         if (to.length() == 0) {
-            triple.append("\"");
-            triple.append(val);
-            triple.append("\" .");
+            // triple.append("\"");
+            System.out.println(freebaseOntModel.getOntProperty(
+                freebaseNsPrefix + predicate).getClass().getName());
+            OntResource range =
+                freebaseOntModel.getOntProperty(freebaseNsPrefix + predicate)
+                    .getRange();
+            triple.append(applyDatatypeToValue(val, range.getURI()));
+            triple.append(" .");
             triples.add(triple);
         } else if (isItKeyTypeAssertion(predicate)) {
             String blankNodeId =
@@ -190,7 +208,7 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
         String predicate =
             convertId(splits[1].substring(1, splits[1].length()));
 
-        if (skipAssertion(predicate) || skipDomain(predicate)) {
+        if (skipDomain(predicate) || skipAssertion(predicate)) {
             throw new SkippedAssertionException(assertion);
         }
 
@@ -244,19 +262,36 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
     }
 
 
+    private String applyDatatypeToValue(String value, String freebaseDataType) {
+        String xmlDataType =
+            freebaseDataTypeMap.getXmlDatatype(freebaseDataType);
+
+        String typedValue = "";
+        // TBD : string utils
+        if (xmlDataType != null && !xmlDataType.isEmpty()) {
+            typedValue = "\"" + value + "\"^^ <" + xmlDataType + ">";
+        } else {
+            typedValue = value;
+        }
+
+        return typedValue;
+    }
+
+
     public static void main(String [] args) throws Exception {
         List<String> predicatesToSkip = new ArrayList<String>();
         predicatesToSkip.add("common.topic.notable_for");
         FreebaseRdfizer rdfizer =
-            new FreebaseRdfizer(null, null, predicatesToSkip, null, null);
+            new FreebaseRdfizer(null, null, predicatesToSkip, null, null,
+                new FileInputStream(new File(
+                    FbSchemaGlobals.FREEBASE_ONTOLOGY_PATH)));
 
         FreebaseRdfizer.display(rdfizer
             .transformData("/m/0p_47\t/film/actor/film\t/m/02vcwc8"));
         FreebaseRdfizer.display(rdfizer
             .transformData("/m/0p_47	/film/actor/film	/m/02vcwc8"));
-        FreebaseRdfizer
-            .display(rdfizer
-                .transformData("/m/0p_47\t/people/person/height_meters\t\tC\\C (シンデレラ\\コンプレックス)"));
+        FreebaseRdfizer.display(rdfizer
+            .transformData("/m/0p_47\t/people/person/height_meters\t\t1.83"));
         FreebaseRdfizer
             .display(rdfizer
                 .transformData("/m/01hf9dc\t/type/object/name\t\t\"Don`t Shoot Me I`m Only the Piano Player\""));
