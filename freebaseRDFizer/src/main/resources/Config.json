@@ -1,0 +1,5 @@
+{
+"domains_to_skip" : ["music"],
+"types_to_skip" : [],
+"properties_to_skip" : ["common.topic.notable_for"]
+}
