@@ -5,9 +5,12 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import org.slf4j.Logger;
 
 import com.hp.hpl.jena.ontology.OntModel;
 import com.hp.hpl.jena.ontology.OntModelSpec;
@@ -18,18 +21,20 @@ import com.sj.data.transform.ExtDataTransformer;
 import com.sj.data.transform.MalFormedAssertionException;
 import com.sj.data.transform.SkippedAssertionException;
 import com.sj.freebase.schema.rdf.FbSchemaGlobals;
+import com.sj.freebase.utils.StringUtils;
 import com.sj.ontology.alignment.SimpleFreebaseDatatypeMap;
+import com.sj.ontology.utils.FreebaseOntologyCreationUtils;
 
-public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
+public class FreebaseRdfizer implements ExtDataTransformer<List<String>> {
+
     private CharSequence fieldSeparator = "\t";
     private String freebaseNsPrefix = "http://rdf.freebase.com/ns#";
-    private List<String> skipPredicateRegexList = new ArrayList<String>();
-    private List<String> keyRegexList = new ArrayList<String>();
+    private Set<String> skipPredicateRegexList = new HashSet<String>();
+    private Set<String> keyRegexList = new HashSet<String>();
     private Set<String> domainsToSkip = new HashSet<String>();
     private SimpleFreebaseDatatypeMap freebaseDataTypeMap =
         new SimpleFreebaseDatatypeMap();
-    private OntModel freebaseOntModel = ModelFactory
-        .createOntologyModel(OntModelSpec.RDFS_MEM);
+    private OntModel freebaseOntModel = null;
 
     private static final String FB_NAMESPACE =
         "<http://rdf.freebase.com/ns/type.key.namespace>";
@@ -40,14 +45,15 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
     private static final String KEY_TYPE1_REGEX = "type.key.namespace";
     private static final String KEY_TYPE2_REGEX = "type.object.key";
 
-    public FreebaseRdfizer (InputStream ipStream) {
-        this(null, null, null, null, null, ipStream);
+
+    public FreebaseRdfizer (OntModel freebaseSchemaOntModel) {
+        this(null, null, null, null, null, freebaseSchemaOntModel);
     }
 
 
     public FreebaseRdfizer (CharSequence fieldSeparator, String prefix,
-        List<String> predicatesToSkip, List<String> keyPredicateRegexList,
-        Set<String> domainsToSkip, InputStream ipStream) {
+        Set<String> predicatesToSkip, Set<String> keyPredicateRegexList,
+        Set<String> domainsToSkip, OntModel freebaseSchemaOntModel) {
         if (fieldSeparator != null) {
             this.fieldSeparator = fieldSeparator;
         }
@@ -72,7 +78,7 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
             keyRegexList.addAll(keyPredicateRegexList);
         }
 
-        freebaseOntModel.read(ipStream, freebaseNsPrefix);
+        freebaseOntModel = freebaseSchemaOntModel;
     }
 
 
@@ -86,9 +92,9 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
 
     // Should linear search to be replaced by something better?
     private boolean skipAssertion(String predicate) {
-        for (String regex : skipPredicateRegexList) {
-            if (regex.contains(predicate))
-                return true;
+
+        if (skipPredicateRegexList.contains(predicate)) {
+            return true;
         }
 
         return false;
@@ -110,33 +116,43 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
     }
 
 
-    private List<StringBuffer> processQuadAssertion(String subject,
-        String predicate, String to, String val)
-    throws MalFormedAssertionException {
-        List<StringBuffer> triples = new ArrayList<StringBuffer>();
-        ;
-        StringBuffer triple = new StringBuffer();
+    private List<String> processQuadAssertion(String subject, String predicate,
+        String to, String val) throws MalFormedAssertionException, Exception {
+        List<String> triples = new ArrayList<String>();
+
+        String triple = "";
 
         val = val.replace("\\", "\\\\");
         val = val.replace("\"", "\\\"");
         // val = val.replace("`", "\\`");
-        triple.append("<");
-        triple.append(freebaseNsPrefix);
-        triple.append(subject);
-        triple.append(">\t<");
-        triple.append(freebaseNsPrefix);
-        triple.append(predicate);
-        triple.append(">\t");
+
+        triple =
+            StringUtils.combine("<", freebaseNsPrefix, subject, ">\t<",
+                freebaseNsPrefix, predicate, ">\t");
+        // triple.append("<");
+        // triple.append(freebaseNsPrefix);
+        // triple.append(subject);
+        // triple.append(">\t<");
+        // triple.append(freebaseNsPrefix);
+        // triple.append(predicate);
+        // triple.append(">\t");
         if (to.length() == 0) {
             // triple.append("\"");
-            System.out.println(freebaseOntModel.getOntProperty(
-                freebaseNsPrefix + predicate).getClass().getName());
-            OntResource range =
-                freebaseOntModel.getOntProperty(freebaseNsPrefix + predicate)
-                    .getRange();
-            triple.append(applyDatatypeToValue(val, range.getURI()));
-            triple.append(" .");
+            OntProperty property = null;
+            try {
+                property =
+                    freebaseOntModel.getOntProperty(freebaseNsPrefix +
+                        predicate);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            triple =
+                StringUtils.combine(triple,
+                    applyDatatypeToValue(val, property), " .");
+            // triple.append(applyDatatypeToValue(val, range.getURI()));
+            // triple.append(" .");
             triples.add(triple);
+
         } else if (isItKeyTypeAssertion(predicate)) {
             String blankNodeId =
                 subject.replaceAll("[^a-zA-Z0-9]", "_") +
@@ -145,43 +161,50 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
             to = convertId(to.substring(1, to.length()));// to.substring(1,
                                                          // to.length()).replace("/",
                                                          // ".");
-            triple.append("_:blank");
-            triple.append(blankNodeId);
-            // triple.append(to.replace(".", "_"));
-            triple.append(" .");
+            triple = StringUtils.combine(triple, "_:blank", blankNodeId, " .");
+            // triple.append("_:blank");
+            // triple.append(blankNodeId);
+            // // triple.append(to.replace(".", "_"));
+            // triple.append(" .");
             triples.add(triple);
-            triple = null;
-            triple = new StringBuffer();
-            triple.append("_:blank");
-            triple.append(blankNodeId);
-            // triple.append(to.replace(".", "_"));
-            triple.append("\t");
-            triple.append(FB_NAMESPACE);
-            triple.append("\t<");
-            triple.append(freebaseNsPrefix);
-            triple.append(to);
-            triple.append("> .");
+
+            triple =
+                StringUtils.combine("_:blank", blankNodeId, "\t", FB_NAMESPACE,
+                    "\t<", freebaseNsPrefix, to, "> .");
+            // triple.append("_:blank");
+            // triple.append(blankNodeId);
+            // // triple.append(to.replace(".", "_"));
+            // triple.append("\t");
+            // triple.append(FB_NAMESPACE);
+            // triple.append("\t<");
+            // triple.append(freebaseNsPrefix);
+            // triple.append(to);
+            // triple.append("> .");
             triples.add(triple);
-            triple = null;
-            triple = new StringBuffer();
-            triple.append("_:blank");
-            triple.append(blankNodeId);
-            // triple.append(to.replace(".", "_"));
-            triple.append("\t");
-            triple.append(FB_VALUE);
-            triple.append("\t");
-            triple.append("\"");
-            triple.append(val);
-            triple.append("\" .");
+
+            triple =
+                StringUtils.combine("_:blank", blankNodeId, "\t", FB_VALUE,
+                    "\t", "\"", val, "\" .");
+            // triple.append("_:blank");
+            // triple.append(blankNodeId);
+            // // triple.append(to.replace(".", "_"));
+            // triple.append("\t");
+            // triple.append(FB_VALUE);
+            // triple.append("\t");
+            // triple.append("\"");
+            // triple.append(val);
+            // triple.append("\" .");
             triples.add(triple);
 
         } else if (to.contains(DEFAULT_LANG_REGEX)) {
             to = to.replace(DEFAULT_LANG_REGEX, "");
-            triple.append("\"");
-            triple.append(val);
-            triple.append("\"@");
-            triple.append(to); // lang
-            triple.append(" .");
+
+            triple = StringUtils.combine(triple, "\"", val, "\"@", to, " .");
+            // triple.append("\"");
+            // triple.append(val);
+            // triple.append("\"@");
+            // triple.append(to); // lang
+            // triple.append(" .");
             triples.add(triple);
         } else {
             throw new MalFormedAssertionException(subject + "\t" + predicate +
@@ -193,9 +216,9 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
 
 
     @Override
-    public List<StringBuffer> transformData(String assertion)
+    public List<String> transformData(String assertion)
     throws NullPointerException, MalFormedAssertionException,
-    SkippedAssertionException, UnsupportedEncodingException {
+    SkippedAssertionException, UnsupportedEncodingException, Exception {
         if (assertion == null)
             throw new NullPointerException();
 
@@ -204,45 +227,52 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
             throw new MalFormedAssertionException(assertion);
         }
 
-        List<StringBuffer> triples = null;
+        List<String> triples = Collections.emptyList();
         String predicate =
             convertId(splits[1].substring(1, splits[1].length()));
 
-        if (skipDomain(predicate) || skipAssertion(predicate)) {
+        // skipDomain(predicate) ||
+        if (skipAssertion(predicate)) {
             throw new SkippedAssertionException(assertion);
         }
 
         if (splits.length == 3) {
-            StringBuffer transformedAssertion = null;
-            transformedAssertion = new StringBuffer();
-            transformedAssertion.append("<");
-            transformedAssertion.append(freebaseNsPrefix);
-            transformedAssertion.append(convertId(splits[0].substring(1,
-                splits[0].length())));
-            transformedAssertion.append(">\t<");
-            transformedAssertion.append(freebaseNsPrefix);
-            transformedAssertion.append(predicate);
-            transformedAssertion.append(">\t<");
-            transformedAssertion.append(freebaseNsPrefix);
-            transformedAssertion.append(convertId(splits[2].substring(1,
-                splits[2].length())));
-            transformedAssertion.append("> . ");
-            triples = new ArrayList<StringBuffer>();
+            String transformedAssertion = "";
+
+            transformedAssertion =
+                StringUtils.combine("<", freebaseNsPrefix, convertId(splits[0]
+                    .substring(1, splits[0].length())), ">\t<",
+                    freebaseNsPrefix, predicate, ">\t<", freebaseNsPrefix,
+                    convertId(splits[2].substring(1, splits[2].length())),
+                    "> . ");
+            // transformedAssertion.append("<");
+            // transformedAssertion.append(freebaseNsPrefix);
+            // transformedAssertion.append(convertId(splits[0].substring(1,
+            // splits[0].length())));
+            // transformedAssertion.append(">\t<");
+            // transformedAssertion.append(freebaseNsPrefix);
+            // transformedAssertion.append(predicate);
+            // transformedAssertion.append(">\t<");
+            // transformedAssertion.append(freebaseNsPrefix);
+            // transformedAssertion.append(convertId(splits[2].substring(1,
+            // splits[2].length())));
+            // transformedAssertion.append("> . ");
+            triples = new ArrayList<String>();
             triples.add(transformedAssertion);
         } else if (splits.length == 4) {
             triples =
                 processQuadAssertion(convertId(splits[0].substring(1, splits[0]
                     .length())), predicate, new String(splits[2]
-                    .getBytes("utf8"), "utf8"), new String(splits[3]
-                    .getBytes("utf8"), "utf8"));
+                    .getBytes("UTF-8"), "UTF-8"), new String(splits[3]
+                    .getBytes("UTF-8"), "UTF-8"));
         }
 
         return triples;
     }
 
 
-    private static void display(List<StringBuffer> assertions) {
-        for (StringBuffer assertion : assertions)
+    private static void display(List<String> assertions) {
+        for (String assertion : assertions)
             System.out.println(assertion);
     }
 
@@ -262,16 +292,22 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
     }
 
 
-    private String applyDatatypeToValue(String value, String freebaseDataType) {
-        String xmlDataType =
-            freebaseDataTypeMap.getXmlDatatype(freebaseDataType);
+    private String applyDatatypeToValue(String value,
+        OntProperty freebaseProperty) {
+        String xmlDataType = null;
+
+        if (freebaseProperty != null) {
+            xmlDataType =
+                freebaseDataTypeMap.getXmlDatatype(freebaseProperty.getRange()
+                    .getURI());
+        }
 
         String typedValue = "";
-        // TBD : string utils
         if (xmlDataType != null && !xmlDataType.isEmpty()) {
-            typedValue = "\"" + value + "\"^^ <" + xmlDataType + ">";
+            typedValue =
+                StringUtils.combine("\"", value, "\"^^ <", xmlDataType, ">");
         } else {
-            typedValue = value;
+            typedValue = StringUtils.combine("\"", value, "\"");
         }
 
         return typedValue;
@@ -279,12 +315,12 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
 
 
     public static void main(String [] args) throws Exception {
-        List<String> predicatesToSkip = new ArrayList<String>();
+        Set<String> predicatesToSkip = new HashSet<String>();
         predicatesToSkip.add("common.topic.notable_for");
+
         FreebaseRdfizer rdfizer =
             new FreebaseRdfizer(null, null, predicatesToSkip, null, null,
-                new FileInputStream(new File(
-                    FbSchemaGlobals.FREEBASE_ONTOLOGY_PATH)));
+                FreebaseOntologyCreationUtils.getOntologyModel(null));
 
         FreebaseRdfizer.display(rdfizer
             .transformData("/m/0p_47\t/film/actor/film\t/m/02vcwc8"));
@@ -310,10 +346,16 @@ public class FreebaseRdfizer implements ExtDataTransformer<List<StringBuffer>> {
         FreebaseRdfizer
             .display(rdfizer
                 .transformData("/m/063q09g	/freebase/labs_project/publicized_date		2009-06-04"));
+        FreebaseRdfizer
+            .display(rdfizer
+                .transformData("/m/063q09g\t/base/labs_project/publicized_date\t\t2009-06-04"));
+        FreebaseRdfizer
+            .display(rdfizer
+                .transformData("/m/063q09g\t/music/labs_project/publicized_date\t\t2009-06-04"));
 
         FreebaseRdfizer
             .display(rdfizer
-                .transformData("/m/026jl_d\t/type/object/name\t/guid/9202a8c04000641f8000000004684bec\t\"2004-11-22\""));
+                .transformData("/m/026jl_d\t/music/object/name\t/guid/9202a8c04000641f8000000004684bec\t\"2004-11-22\""));
 
     }
 }

@@ -4,6 +4,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 
+import com.hp.hpl.jena.ontology.OntModel;
+
 public interface FreebaseOntology {
     public void createDomain(String domainName) throws Exception;
 
@@ -34,4 +36,6 @@ public interface FreebaseOntology {
 
     public void readOntology(InputStream ipStream, String lang)
     throws Exception;
+    
+    OntModel returnOntologyModel();
 }

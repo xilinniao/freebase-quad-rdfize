@@ -169,6 +169,10 @@ public class FreebaseJenaOntologyHandler implements FreebaseOntology {
         model.read(ipStream, baseURI, lang);
     }
 
+    @Override
+    public OntModel returnOntologyModel() {
+        return this.model;
+    }
 
     public static void main(String [] args) throws Exception {
 
@@ -202,5 +206,4 @@ public class FreebaseJenaOntologyHandler implements FreebaseOntology {
 
         creator.write(System.out);
     }
-
 }
