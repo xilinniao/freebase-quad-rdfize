@@ -11,6 +11,8 @@
 <modules>
  <module>data-transformation</module>
  <module>freebaseRDFizer</module>
+    <module>index</module>
+    <module>utils</module>
   </modules>
 <build>
 <plugins>

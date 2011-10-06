@@ -27,6 +27,11 @@
 			<version>0.1</version>
 		</dependency>
 		<dependency>
+			<groupId>com.sj.freebase</groupId>
+			<artifactId>util</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
 			<groupId>com.freebase</groupId>
 			<artifactId>freebase-java</artifactId>
 			<version>1.0.0</version>
@@ -124,5 +129,22 @@
 			<artifactId>gson</artifactId>
 			<version>1.7.1</version>
 		</dependency>
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>0.2.2</version>
+		</dependency>
 	</dependencies>
+	<repositories>
+		<repository>
+			<id>freebase-java</id>
+			<url>http://freebase-java.googlecode.com/svn/repository</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+		</repository>
+	</repositories>
 </project>
