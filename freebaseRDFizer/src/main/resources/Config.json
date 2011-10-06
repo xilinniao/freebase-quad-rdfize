@@ -1,5 +1,13 @@
 {
+"_COMMENT" : "*** quad processing specific ***",
 "domains_to_skip" : ["music"],
 "types_to_skip" : [],
-"properties_to_skip" : ["common.topic.notable_for"]
+"properties_to_skip" : ["common.topic.notable_for"],
+
+"_COMMENT" : "*** SOLR specific ***",
+"solr_server_host_name" : "localhost",
+"solr_server_port" : 8983,
+"solr_server_update_endpoint" : "/solr/update/json?commitWithin=3000",
+"solr_server_query_endpoint" : "/solr/select?wt=json&indent=true&fl=*,score&q=",
+"solr_query_response_format":"json"
 }

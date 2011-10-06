@@ -23,8 +23,8 @@ import com.sj.data.transform.MalFormedAssertionException;
 import com.sj.data.transform.SkippedAssertionException;
 import com.sj.freebase.data.rdf.FreebaseRdfizer;
 import com.sj.freebase.schema.rdf.FbSchemaGlobals;
-import com.sj.freebase.utils.ConfigUtils;
 import com.sj.ontology.utils.FreebaseOntologyCreationUtils;
+import com.sj.util.ConfigUtils;
 
 public class DemoFreebaseRdfizer {
 
@@ -97,12 +97,12 @@ public class DemoFreebaseRdfizer {
                     }
                     logger.warn("Skipped Assertion:   ---   " +
                         e.getAssertion());
-                } 
+                }
             }
             reader.close();
             writer.close();
         }
-        
+
         model.close();
         System.out.println("Total time taken : " +
             (System.currentTimeMillis() - startTime));
