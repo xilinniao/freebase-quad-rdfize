@@ -1,3 +1,6 @@
+
+# This is a numbered sublist
+
 # Check out the code
 # mvn clean install
 # cd to project's root directory
