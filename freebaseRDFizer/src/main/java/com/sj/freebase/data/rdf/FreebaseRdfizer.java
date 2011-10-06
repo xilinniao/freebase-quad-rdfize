@@ -20,6 +20,7 @@ import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.sj.data.transform.ExtDataTransformer;
 import com.sj.data.transform.MalFormedAssertionException;
 import com.sj.data.transform.SkippedAssertionException;
+import com.sj.freebase.data.constants.RdfizerConstants;
 import com.sj.freebase.schema.rdf.FbSchemaGlobals;
 import com.sj.ontology.alignment.SimpleFreebaseDatatypeMap;
 import com.sj.ontology.utils.FreebaseOntologyCreationUtils;
@@ -28,7 +29,7 @@ import com.sj.util.StringUtils;
 public class FreebaseRdfizer implements ExtDataTransformer<List<String>> {
 
     private CharSequence fieldSeparator = "\t";
-    private String freebaseNsPrefix = "http://rdf.freebase.com/ns#";
+    private String freebaseNsPrefix = RdfizerConstants.FREEBASE_NAMESPACE;
     private Set<String> skipPredicateRegexList = new HashSet<String>();
     private Set<String> keyRegexList = new HashSet<String>();
     private Set<String> domainsToSkip = new HashSet<String>();
