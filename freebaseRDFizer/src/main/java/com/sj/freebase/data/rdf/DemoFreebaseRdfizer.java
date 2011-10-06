@@ -79,7 +79,7 @@ public class DemoFreebaseRdfizer {
                             List<String> triples =
                                 rdfizer.transformData(assertion);
                             for (String triple : triples) {
-                                // System.out.println(triple);
+//                                 System.out.println(triple);
                                 writer.write(triple.toString() + "\n");
                             }
 
