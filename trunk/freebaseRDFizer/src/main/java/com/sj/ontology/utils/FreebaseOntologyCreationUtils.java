@@ -3,6 +3,7 @@ package com.sj.ontology.utils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -14,6 +15,9 @@ import java.util.Set;
 import org.apache.log4j.Logger;
 
 import com.hp.hpl.jena.ontology.OntModel;
+import com.hp.hpl.jena.rdf.model.ModelFactory;
+import com.hp.hpl.jena.util.FileManager;
+import com.sj.freebase.data.constants.RdfizerConstants;
 import com.sj.freebase.ontology.FreebaseJenaOntologyHandler;
 import com.sj.freebase.schema.rdf.FbSchemaGlobals;
 import com.sj.freebase.schema.rdf.MQLFreebaseSchemaFetcher;
@@ -24,18 +28,27 @@ public class FreebaseOntologyCreationUtils {
         .getLogger(FreebaseOntologyCreationUtils.class);
 
 
+    public static OntModel getOntology(String ontologyFilepath) {
+        OntModel model = ModelFactory.createOntologyModel();
+        InputStream in = FileManager.get().open(ontologyFilepath);
+        model.read(in, null);
+
+        return model;
+    }
+
+
     /**
      * @param args
      * @throws Exception
      */
     public static OntModel getOntologyModel(Set<String> domainsToSkip)
     throws Exception {
-        
+
         if (domainsToSkip == null) {
             domainsToSkip = Collections.emptySet();
         }
         FreebaseJenaOntologyHandler creator =
-            new FreebaseJenaOntologyHandler("http://rdf.freebase.com/ns#");
+            new FreebaseJenaOntologyHandler(RdfizerConstants.FREEBASE_NAMESPACE);
         MQLFreebaseSchemaFetcher fetcher = new MQLFreebaseSchemaFetcher();
         List<CharSequence> xClasses = null;
         List<CharSequence> domains = new ArrayList<CharSequence>();
@@ -108,11 +121,10 @@ public class FreebaseOntologyCreationUtils {
 
 
     public static void main(String [] args) throws Exception {
-        Set<String> domains = new HashSet<String>();
-        domains.add("music");
-        OntModel model = getOntologyModel(domains);
+        OntModel model = getOntologyModel(null);
 
-        model.write(new FileOutputStream(new File("schema.rdfs")));
+        model.write(new FileOutputStream(new File(
+            RdfizerConstants.RELATIVE_SCHEMA_FILE_PATH)));
         model.close();
     }
 

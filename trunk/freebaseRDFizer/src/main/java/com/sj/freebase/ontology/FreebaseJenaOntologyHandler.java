@@ -10,6 +10,7 @@ import com.hp.hpl.jena.ontology.OntModelSpec;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.hp.hpl.jena.rdf.model.NodeIterator;
 import com.hp.hpl.jena.rdf.model.ResIterator;
+import com.sj.freebase.data.constants.RdfizerConstants;
 import com.sj.freebase.schema.rdf.FbSchemaGlobals;
 
 public class FreebaseJenaOntologyHandler implements FreebaseOntology {
@@ -177,7 +178,7 @@ public class FreebaseJenaOntologyHandler implements FreebaseOntology {
     public static void main(String [] args) throws Exception {
 
         FreebaseJenaOntologyHandler creator =
-            new FreebaseJenaOntologyHandler("http://rdf.freebase.com/ns#");
+            new FreebaseJenaOntologyHandler(RdfizerConstants.FREEBASE_NAMESPACE);
         creator.createDomain("music");
         creator.createClass("music.album", "music");
         creator.createClass("music.artist", "music");
